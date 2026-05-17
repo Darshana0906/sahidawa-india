@@ -320,7 +320,6 @@ export default function PharmacyMap({
                     marker.getElement()?.classList.add("sahidawa-marker-hover");
                 });
                 marker.on("mouseout", () => {
-                    marker.closePopup();
                     marker.getElement()?.classList.remove("sahidawa-marker-hover");
                 });
             }
