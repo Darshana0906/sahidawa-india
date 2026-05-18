@@ -418,6 +418,12 @@ export default function ScanPage() {
         setBatchInput("");
     };
 
+    const handleDismissResult = () => {
+        setShowResult(false);
+        setVerifyResult(null);
+        setVerifyError(null);
+    };
+
     const handleShare = async () => {
         let shareText = "";
         if (verifyResult?.verified) {
@@ -516,19 +522,13 @@ export default function ScanPage() {
                 {showResult && (
                     <div className="animate-in fade-in zoom-in absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm duration-300">
                         <button
-                            onClick={() => {
-                                setShowResult(false);
-                                setVerifyError(null);
-                            }}
+                            onClick={handleDismissResult}
                             className="absolute top-4 right-4 z-40 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
                         >
                             <X size={24} />
                         </button>
                         {verifyError && (
-                            <ErrorResult
-                                message={verifyError}
-                                onRetry={() => handleVerify(batchInput)}
-                            />
+                            <ErrorResult message={verifyError} onRetry={handleDismissResult} />
                         )}
                         {!verifyError &&
                             verifyResult?.verified &&
@@ -551,7 +551,7 @@ export default function ScanPage() {
                                 />
                             )}
                         {!verifyError && verifyResult && !verifyResult.verified && (
-                            <UnverifiedResult onScanAgain={handleScanAgain} />
+                            <UnverifiedResult onScanAgain={handleDismissResult} />
                         )}
                     </div>
                 )}
