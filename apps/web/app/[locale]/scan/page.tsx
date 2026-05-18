@@ -391,6 +391,41 @@ export default function ScanPage() {
 
     const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+    // ── OCR Batch Number Parser ──────────────────────────────────────────────
+    // Extracts Indian medicine strip batch patterns (B.No / Batch / LOT)
+    const extractBatchFromOcrText = (text: string): string | null => {
+        const patterns = [
+            // Explicit labels with optional punctuation: "B.No: ABC123", "Batch No. X45"
+            /(?:B\.?\s*No\.?|Batch\s*(?:No\.?)?|LOT\s*No\.?|Lot\s*No\.?)\s*[:\-\.\s]*([A-Z0-9][A-Z0-9\-\/]{2,14})/i,
+            // Standalone uppercase alphanum tokens 4-14 chars (fallback)
+            /\b([A-Z]{1,3}[0-9]{3,10}[A-Z0-9]*)\b/,
+        ];
+
+        // Words that should never be treated as batch numbers
+        const BLOCKLIST = new Set([
+            "CDSCO",
+            "APPROVED",
+            "TABLET",
+            "EXPIRY",
+            "BATCH",
+            "MANUFACTURING",
+            "MRP",
+            "RS",
+            "INR",
+            "MFG",
+            "EXP",
+        ]);
+
+        for (const pattern of patterns) {
+            const match = text.match(pattern);
+            if (match?.[1]) {
+                const candidate = match[1].trim().toUpperCase();
+                if (!BLOCKLIST.has(candidate)) return candidate;
+            }
+        }
+        return null;
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -424,8 +459,12 @@ export default function ScanPage() {
             });
 
             if (!res.ok) {
+                // 🌟 Fix: always release the loading lock on error
                 if (res.status === 503) {
                     toast.warning("OCR service is currently unavailable. Please verify manually.");
+                } else if (res.status === 400) {
+                    const body = (await res.json().catch(() => ({}))) as { error?: string };
+                    toast.error(body.error ?? "Invalid image file.");
                 } else {
                     toast.error("Failed to extract text from image.");
                 }
@@ -437,15 +476,23 @@ export default function ScanPage() {
             if (data.text) {
                 setOcrText(data.text);
                 setOcrConfidence(data.confidence ?? 0);
-                toast.success("OCR extraction complete!");
 
-                if (batchInput.trim()) {
-                    handleVerify(batchInput);
+                // 🌟 Fix: auto-parse batch number from OCR output & trigger verification
+                const parsedBatch = extractBatchFromOcrText(data.text);
+                if (parsedBatch) {
+                    setBatchInput(parsedBatch);
+                    toast.success(`Batch detected: ${parsedBatch} — verifying…`);
+                    // Small tick so state update flushes before async call
+                    setTimeout(() => handleVerify(parsedBatch), 50);
+                } else {
+                    toast.success("OCR complete! Enter or confirm the batch number to verify.");
                 }
             } else {
-                toast.warning("No clear text found in image.");
+                toast.warning(
+                    "No clear text found in image. Please enter the batch number manually."
+                );
             }
-        } catch (err) {
+        } catch {
             toast.warning("OCR service is currently unavailable. Please verify manually.");
         } finally {
             setIsScanning(false);
@@ -605,14 +652,22 @@ export default function ScanPage() {
             {ocrText && (
                 <div className="mx-auto my-4 w-full max-w-md rounded-2xl border border-emerald-500/30 bg-slate-900/90 p-4 text-xs backdrop-blur-md">
                     <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2">
-                        <span className="font-bold text-emerald-400">OCR Extracted Text Debug Log</span>
+                        <span className="font-bold text-emerald-400">OCR Extracted Text</span>
                         {ocrConfidence !== null && (
                             <span className="rounded bg-emerald-500/20 px-2 py-0.5 font-mono text-emerald-300">
                                 Confidence: {Math.round(ocrConfidence * 100)}%
                             </span>
                         )}
                     </div>
-                    <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap font-mono text-slate-300">
+                    {batchInput && (
+                        <div className="mb-2 flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-1.5">
+                            <span className="text-emerald-400">Batch detected:</span>
+                            <span className="font-mono font-bold text-emerald-300">
+                                {batchInput}
+                            </span>
+                        </div>
+                    )}
+                    <pre className="max-h-32 overflow-y-auto font-mono whitespace-pre-wrap text-slate-300">
                         {ocrText}
                     </pre>
                 </div>
