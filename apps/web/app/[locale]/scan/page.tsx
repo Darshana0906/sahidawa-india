@@ -15,12 +15,14 @@ import {
     AlertTriangle,
     Search,
     X,
+    ScanLine,
 } from "lucide-react";
 import { Link } from "@/i18n/routing";
 import { PageHeader } from "../components/PageHeader";
 import { toast } from "sonner";
 import Footer from "../components/Footer";
 import { ExpiryBadge } from "@/components/scanner/ExpiryBadge";
+import { BarcodeScanner } from "@/components/scanner/BarcodeScanner";
 import { verifyMedicine, VerifyResult, VerifiedMedicine, API_BASE } from "@/lib/api";
 import LazyImage from "@/components/LazyImage";
 
@@ -380,6 +382,7 @@ export default function ScanPage() {
     const [verifyError, setVerifyError] = useState<string | null>(null);
     const [ocrText, setOcrText] = useState<string | null>(null);
     const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+    const [isCameraActive, setIsCameraActive] = useState(false);
 
     const handleVerify = useCallback(async (batch: string) => {
         if (!batch.trim()) {
@@ -546,6 +549,17 @@ export default function ScanPage() {
         }
     };
 
+    /** Handles a barcode scanned via the live camera scanner. */
+    const handleBarcodeScan = useCallback(
+        (barcodeText: string) => {
+            setBatchInput(barcodeText);
+            setIsCameraActive(false);
+            toast.success(`Barcode detected: ${barcodeText} — verifying…`);
+            handleVerify(barcodeText);
+        },
+        [handleVerify]
+    );
+
     const handleScanAgain = () => {
         setIsScanning(false);
         setShowResult(false);
@@ -555,6 +569,7 @@ export default function ScanPage() {
         setBatchInput("");
         setOcrText(null);
         setOcrConfidence(null);
+        setIsCameraActive(false);
     };
 
     const handleDismissResult = () => {
@@ -616,7 +631,12 @@ export default function ScanPage() {
 
             <div className="relative flex flex-1 items-center justify-center overflow-hidden">
                 <div className="absolute inset-0 overflow-hidden bg-slate-900">
-                    {uploadedImage ? (
+                    {isCameraActive ? (
+                        <BarcodeScanner
+                            onScan={handleBarcodeScan}
+                            debounceMs={2500}
+                        />
+                    ) : uploadedImage ? (
                         <LazyImage
                             src={uploadedImage}
                             alt="Uploaded"
@@ -738,6 +758,17 @@ export default function ScanPage() {
                     gallery.
                 </p>
                 <div className="flex gap-4">
+                    <button
+                        onClick={() => setIsCameraActive((prev) => !prev)}
+                        className={`flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-colors focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-black focus:outline-none ${
+                            isCameraActive
+                                ? "bg-red-500 text-white hover:bg-red-400"
+                                : "bg-emerald-500 text-white hover:bg-emerald-400"
+                        }`}
+                    >
+                        <ScanLine size={18} />
+                        {isCameraActive ? "Stop Scanner" : "Scan Barcode"}
+                    </button>
                     <label
                         htmlFor="medicine-upload"
                         className="flex cursor-pointer items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-black shadow-lg transition-colors hover:bg-slate-200"
@@ -745,9 +776,6 @@ export default function ScanPage() {
                         <Layers size={18} />
                         Upload Photo
                     </label>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-                        <AlertCircle size={20} className="text-white/50" />
-                    </div>
                 </div>
             </div>
             <Footer />
