@@ -61,6 +61,21 @@ export default async function LocaleLayout({
 
     return (
         <html lang={locale} suppressHydrationWarning>
+            <head>
+                <script
+                    dangerouslySetInnerHTML={{
+                        __html: `
+                            try {
+                                if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                                    document.documentElement.classList.add('dark');
+                                } else {
+                                    document.documentElement.classList.remove('dark');
+                                }
+                            } catch (_) {}
+                        `,
+                    }}
+                />
+            </head>
             {/* REPLACE YOUR OLD BODY TAG WITH THIS ONE: */}
             <body className="flex min-h-screen flex-col bg-(--color-surface-page) text-(--color-text-primary) transition-colors duration-300">
                 <ServiceWorkerProvider>
