@@ -23,7 +23,19 @@ export async function POST(req: NextRequest) {
                 { status: 413 }
             );
         }
-
+                
+        const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+            return NextResponse.json(
+                { 
+                    error: "invalid_file_type",
+                    message: "Invalid file type. Only JPEG, PNG, and WEBP images are allowed.",
+                    allowedTypes: ALLOWED_MIME_TYPES,
+                    receivedType: file.type
+                },
+                { status: 400 }
+            );
+        }
         const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
         const apiKey = process.env.CLOUDINARY_API_KEY;
         const apiSecret = process.env.CLOUDINARY_API_SECRET;
