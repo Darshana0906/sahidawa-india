@@ -236,6 +236,18 @@ export default function SearchBar({ dark = false, onSearchChange }: SearchBarPro
                     ) {
                         // Request was cancelled by a newer keystroke — safe to ignore
                         return;
+                    }
+                    // Network errors — silently fall through to fuzzy matcher
+                    if (
+                        response.error.message?.includes("Failed to fetch") ||
+                        response.error.message?.includes("NetworkError") ||
+                        response.error.message?.includes("fetch")
+                    ) {
+                        console.warn(
+                            "[SearchBar] Network error, trying fuzzy fallback:",
+                            response.error.message
+                        );
+                        useFallback = true;
                     } else {
                         console.error("[SearchBar] Supabase error:", response.error.message);
                         setSuggestions([]);
