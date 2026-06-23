@@ -3,6 +3,7 @@ import multer from "multer";
 import { supabase } from "../db/client";
 import { redisClient } from "../utils/redis";
 import { scanQueryLimiter } from "../middleware/rateLimit";
+import { escapeIlike, escapePostgrest } from "../utils/db";
 
 const router = Router();
 
@@ -61,12 +62,26 @@ router.post(
                 warnings: ["Medicine not found in CDSCO database. Consult a pharmacist."],
             };
 
+            if (transcribedText === "") {
+                verificationResult = {
+                    status: "transcription_failed",
+                    cdsco_registered: false,
+                    medicine_name_english: transcribedText,
+                    medicine_name_regional: transcribedText,
+                    manufacturer: "Unknown",
+                    category: "Unknown",
+                    warnings: ["Audio could not be transcribed. Please try again."],
+                };
+                result.verification = verificationResult;
+                return res.json(result);
+            }
+
             if (transcribedText) {
                 const { data: medicines } = await supabase
                     .from("medicines")
                     .select("brand_name, generic_name, manufacturer, is_cdsco_verified")
                     .or(
-                        `brand_name.ilike.%${transcribedText}%,generic_name.ilike.%${transcribedText}%`
+                        `brand_name.ilike."%${escapePostgrest(escapeIlike(transcribedText))}%",generic_name.ilike."%${escapePostgrest(escapeIlike(transcribedText))}%"`
                     )
                     .limit(1);
 
